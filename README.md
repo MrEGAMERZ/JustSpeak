@@ -88,15 +88,9 @@ cd android
 
 `local.properties` is gitignored. Point `sdk.dir` at your Android SDK.
 
-### If this VM cannot assemble
+### Verified on this scaffold
 
-This Cloud Agent image has **JDK 21** but **no Android SDK**. If `assembleDebug` was not run here, install:
-
-```text
-cmdline-tools, platforms;android-35, build-tools;35.0.0, platform-tools
-```
-
-then re-run `./gradlew :app:assembleDebug` from `android/`. Versions above are the source of truth.
+`./gradlew :app:assembleDebug :app:testDebugUnitTest` succeeded with JDK 21 + Android SDK **platforms;android-35** and **build-tools;34.0.0** (AGP 8.7 default; 35.0.0 also works). APK: `android/app/build/outputs/apk/debug/app-debug.apk`.
 
 ## Project layout
 
