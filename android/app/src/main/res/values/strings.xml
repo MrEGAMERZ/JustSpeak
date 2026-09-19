@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">JustSpeak</string>
+    <string name="ime_name">JustSpeak</string>
+    <string name="ime_subtype_english">English (dictation)</string>
+
+    <string name="transcript_placeholder">Tap the mic. D1 uses a stub transcript so you can test Insert.</string>
+    <string name="listening">Listening…</string>
+    <string name="mic_start">Mic</string>
+    <string name="mic_stop">Stop</string>
+    <string name="insert">Insert</string>
+    <string name="done">Done</string>
+    <string name="space">Space</string>
+    <string name="backspace">Backspace</string>
+    <string name="open_setup">Microphone needed — open setup</string>
+
+    <string name="status_placeholder">ASR: stub</string>
+    <string name="status_idle">ASR: %1$s</string>
+    <string name="status_listening">Listening (%1$s)</string>
+    <string name="status_transcribing">Transcribing…</string>
+    <string name="status_ready_insert">Ready — tap Insert (%1$s)</string>
+    <string name="status_need_mic">Grant microphone in JustSpeak setup</string>
+    <string name="status_mic_error">Mic error: %1$s</string>
+
+    <string name="onboarding_tagline">Privacy-first voice dictation keyboard. Speech stays on this device.</string>
+    <string name="onboarding_how_title">Enable the keyboard</string>
+    <string name="onboarding_steps">1. Grant the microphone below.\n2. Open keyboard settings and turn on JustSpeak.\n3. In any app’s text field, switch the input method to JustSpeak.\n4. Tap the mic, then Insert.\n\nPath: Settings → System → Languages &amp; input → On-screen keyboard → Manage keyboards → JustSpeak.\nOEM wording varies (Samsung: Settings → General management → Keyboard list).</string>
+    <string name="onboarding_privacy">No account. No cloud ASR in this build. Day 1 emits placeholder text so the insert path can be tested; Day 3 swaps in on-device Whisper English.</string>
+    <string name="onboarding_mic_ok">Microphone: granted</string>
+    <string name="onboarding_mic_missing">Microphone: not granted</string>
+    <string name="onboarding_ime_ok">Keyboard: enabled in system settings</string>
+    <string name="onboarding_ime_missing">Keyboard: not enabled yet — use Open keyboard settings</string>
+    <string name="grant_mic">Grant microphone</string>
+    <string name="open_ime_settings">Open keyboard settings</string>
+    <string name="switch_keyboard">Switch input method</string>
+    <string name="mic_already_granted">Microphone already granted</string>
+</resources>

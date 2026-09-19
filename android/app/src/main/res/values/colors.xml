@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="keyboard_bg">#1B1F24</color>
+    <color name="keyboard_text">#F4F6F8</color>
+    <color name="keyboard_muted">#9AA3AD</color>
+    <color name="keyboard_accent">#3DDC84</color>
+    <color name="keyboard_accent_pressed">#2FB56C</color>
+    <color name="keyboard_surface">#2A3038</color>
+    <color name="keyboard_surface_alt">#343B44</color>
+    <color name="onboarding_bg">#F6F7F5</color>
+    <color name="onboarding_title">#14201A</color>
+    <color name="onboarding_body">#243028</color>
+    <color name="onboarding_muted">#5C6B62</color>
+    <color name="ic_launcher_background">#14201A</color>
+</resources>

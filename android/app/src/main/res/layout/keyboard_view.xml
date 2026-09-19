@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/keyboardRoot"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@color/keyboard_bg"
+    android:orientation="vertical"
+    android:padding="12dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/brandView"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/ime_name"
+            android:textColor="@color/keyboard_muted"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/statusView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/status_placeholder"
+            android:textColor="@color/keyboard_muted"
+            android:textSize="11sp"
+            tools:text="ASR: stub" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/transcriptView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:background="@drawable/bg_transcript"
+        android:minHeight="56dp"
+        android:padding="10dp"
+        android:text="@string/transcript_placeholder"
+        android:textColor="@color/keyboard_text"
+        android:textSize="16sp" />
+
+    <Button
+        android:id="@+id/setupButton"
+        style="@style/Widget.JustSpeak.KeyboardButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="@string/open_setup"
+        android:visibility="gone"
+        tools:visibility="visible" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <ImageButton
+                android:id="@+id/micButton"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:background="@drawable/bg_mic_button"
+                android:contentDescription="@string/mic_start"
+                android:padding="12dp"
+                android:scaleType="centerInside"
+                android:src="@drawable/ic_mic" />
+
+            <TextView
+                android:id="@+id/micLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="@string/mic_start"
+                android:textColor="@color/keyboard_muted"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/insertButton"
+            style="@style/Widget.JustSpeak.KeyboardButton"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:text="@string/insert" />
+
+        <Button
+            android:id="@+id/doneButton"
+            style="@style/Widget.JustSpeak.KeyboardButton.Secondary"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:text="@string/done" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/spaceButton"
+            style="@style/Widget.JustSpeak.KeyboardButton.Secondary"
+            android:layout_width="0dp"
+            android:layout_height="44dp"
+            android:layout_weight="1"
+            android:text="@string/space" />
+
+        <ImageButton
+            android:id="@+id/backspaceButton"
+            android:layout_width="56dp"
+            android:layout_height="44dp"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/bg_key_secondary"
+            android:contentDescription="@string/backspace"
+            android:padding="10dp"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_backspace" />
+    </LinearLayout>
+</LinearLayout>
