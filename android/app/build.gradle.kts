@@ -12,7 +12,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = 1
-        versionName = "0.1.0-d1"
+        versionName = "0.1.0-d2"
 
         // D1: stub transcript so Insert can be tested without a ggml model.
         // D3: flip to false once WhisperCppEngine.nativeReady() is true.

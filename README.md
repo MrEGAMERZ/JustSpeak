@@ -31,7 +31,7 @@ The stub ASR returns placeholder text so you can test **Insert** without a Whisp
 │       │                                                     │
 │       ├─ Keyboard UI (mic, transcript, Insert/Done, ⌫)      │
 │       ├─ EditorBridge (thin InputConnection wrapper)        │
-│       ├─ AudioCapture (16 kHz mono PCM hooks → D2)          │
+│       ├─ AudioCapture (16 kHz mono PCM + focus + float path)          │
 │       └─ AsrEngine                                          │
 │              ├─ StubAsrEngine          (D1 default)         │
 │              └─ WhisperCppEngine       (D3: whisper.cpp)    │
@@ -128,7 +128,7 @@ docs/PLAN.md
 
 ## Day 2+ TODOs
 
-- **D2:** harden `AudioCapture`, audio focus, float conversion, IME permission recovery.
+- **D2 (done):** audio focus, capture race fixes, int16→float path, IME permission recovery; stub ASR still default.
 - **D3:** vendor whisper.cpp, CMake/JNI, load `ggml-base.en-q5_1.bin`, swap stub.
 - **D4:** E2E insert in multiple host apps; composing / empty / error cases.
 - **D5:** debug APK + no-ANR IME hardening.

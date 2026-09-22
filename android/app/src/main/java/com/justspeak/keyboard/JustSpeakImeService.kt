@@ -4,6 +4,7 @@ import android.content.Intent
 import android.inputmethodservice.InputMethodService
 import android.view.View
 import android.view.inputmethod.EditorInfo
+import android.widget.Toast
 import com.justspeak.keyboard.asr.AsrEngine
 import com.justspeak.keyboard.asr.AsrError
 import com.justspeak.keyboard.asr.AsrListener
@@ -17,13 +18,14 @@ import com.justspeak.keyboard.ime.EditorBridge
 /**
  * System keyboard. Mic → (stub) transcript → Insert into the focused field.
  *
- * Not a full QWERTY. Space / backspace exist so you can fix the insertion point.
+ * D2: audio focus + capture race safety, int16→float feed into [AsrEngine],
+ * and mic-permission recovery via onboarding (IME cannot show the dialog).
  */
 class JustSpeakImeService : InputMethodService() {
 
     private var binding: KeyboardViewBinding? = null
     private lateinit var asr: AsrEngine
-    private val capture = AudioCapture()
+    private lateinit var capture: AudioCapture
     private val editor = EditorBridge(
         connection = { currentInputConnection },
         editorInfo = { currentInputEditorInfo },
@@ -35,6 +37,7 @@ class JustSpeakImeService : InputMethodService() {
     override fun onCreate() {
         super.onCreate()
         asr = AsrProvider.create(this)
+        capture = AudioCapture(this)
     }
 
     override fun onCreateInputView(): View {
@@ -56,14 +59,15 @@ class JustSpeakImeService : InputMethodService() {
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {
-        stopListening()
+        // Teardown recording when the IME hides — no orphaned AudioRecord.
+        cancelListening()
         super.onFinishInputView(finishingInput)
     }
 
     override fun onDestroy() {
-        stopListening()
+        cancelListening()
         if (::asr.isInitialized) asr.release()
-        capture.release()
+        if (::capture.isInitialized) capture.release()
         binding = null
         super.onDestroy()
     }
@@ -75,29 +79,35 @@ class JustSpeakImeService : InputMethodService() {
         }
         if (!MicPermission.isGranted(this)) {
             renderPermissionState()
+            Toast.makeText(this, R.string.status_need_mic, Toast.LENGTH_SHORT).show()
+            openOnboarding()
             return
         }
         startListening()
     }
 
     private fun startListening() {
+        // No double-record: ignore if capture or ASR already active.
+        if (listening || capture.isRunning || asr.isRunning) return
+
         listening = true
         latestTranscript = ""
         binding?.transcriptView?.text = getString(R.string.listening)
         binding?.statusView?.text = getString(R.string.status_listening, asr.backendName)
-        binding?.micButton?.isSelected = true
-        binding?.micButton?.setImageResource(R.drawable.ic_mic)
-        binding?.micLabel?.text = getString(R.string.mic_stop)
+        setListeningUi(true)
 
-        val captureResult = capture.start { _, _ ->
-            // D2: feed PCM into WhisperCppEngine. D1 records so the permission
-            // and AudioRecord path are real; the stub ASR ignores samples.
-        }
+        val captureResult = capture.start(
+            listener = { _, _ -> /* raw int16 available if needed */ },
+            onPcmFloat = { samples, count -> asr.feedPcmFloat(samples, count) },
+        )
         if (captureResult.isFailure) {
+            listening = false
+            setListeningUi(false)
             binding?.statusView?.text = getString(
                 R.string.status_mic_error,
                 captureResult.exceptionOrNull()?.message ?: "unknown",
             )
+            return
         }
 
         asr.start(object : AsrListener {
@@ -139,15 +149,25 @@ class JustSpeakImeService : InputMethodService() {
     }
 
     private fun stopListening() {
-        if (!listening && !asr.isRunning && !capture.isRunning) {
+        if (!listening &&
+            !(::asr.isInitialized && asr.isRunning) &&
+            !(::capture.isInitialized && capture.isRunning)
+        ) {
             setListeningUi(false)
             return
         }
         listening = false
-        asr.stop()
-        capture.stop()
+        if (::asr.isInitialized) asr.stop()
+        if (::capture.isInitialized) capture.stop()
         setListeningUi(false)
         binding?.statusView?.text = getString(R.string.status_idle, asr.backendName)
+    }
+
+    private fun cancelListening() {
+        listening = false
+        if (::asr.isInitialized) asr.cancel()
+        if (::capture.isInitialized) capture.cancel()
+        setListeningUi(false)
     }
 
     private fun insertTranscript() {

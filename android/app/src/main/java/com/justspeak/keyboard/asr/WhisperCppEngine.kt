@@ -2,6 +2,7 @@ package com.justspeak.keyboard.asr
 
 import android.content.Context
 import java.io.File
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * D3 target: on-device Whisper English via whisper.cpp (ggml) + JNI.
@@ -29,6 +30,11 @@ class WhisperCppEngine(
 
     private val appContext = context.applicationContext
 
+    private val pcmLock = Any()
+    private val pcmFloat = ArrayList<Float>(16_000)
+    private val sessionActive = AtomicBoolean(false)
+    private val maxFloatSamples: Int = 16_000 * 30 // ~30s @ 16 kHz
+
     override val backendName: String
         get() = if (isNativeReady()) "whisper.cpp" else "whisper.cpp-pending"
 
@@ -36,6 +42,8 @@ class WhisperCppEngine(
         get() = fallback.isRunning
 
     override fun start(listener: AsrListener) {
+        clearPcmBuffer()
+        sessionActive.set(true)
         if (!isNativeLibraryLoaded()) {
             listener.onError(
                 AsrError(
@@ -85,9 +93,42 @@ class WhisperCppEngine(
         }
     }
 
-    override fun stop() = fallback.stop()
+    override fun stop() {
+        sessionActive.set(false)
+        fallback.stop()
+    }
 
-    override fun release() = fallback.release()
+    override fun release() {
+        sessionActive.set(false)
+        clearPcmBuffer()
+        fallback.release()
+    }
+
+    /**
+     * Buffers Whisper-ready float PCM for D3 JNI. Bounded to ~30s to avoid OOM
+     * if the mic is left open. Stub fallback ignores this data.
+     */
+    override fun feedPcmFloat(samples: FloatArray, sampleCount: Int) {
+        if (!sessionActive.get() || sampleCount <= 0) return
+        val count = sampleCount.coerceAtMost(samples.size)
+        synchronized(pcmLock) {
+            var i = 0
+            while (i < count && pcmFloat.size < maxFloatSamples) {
+                pcmFloat.add(samples[i])
+                i++
+            }
+        }
+    }
+
+    /** Snapshot of buffered floats for D3 (defensive copy). */
+    fun drainPcmFloat(): FloatArray = synchronized(pcmLock) {
+        val out = FloatArray(pcmFloat.size)
+        for (i in pcmFloat.indices) out[i] = pcmFloat[i]
+        pcmFloat.clear()
+        out
+    }
+
+    private fun clearPcmBuffer() = synchronized(pcmLock) { pcmFloat.clear() }
 
     fun isNativeReady(): Boolean = isNativeLibraryLoaded() && resolveModelFile() != null
 

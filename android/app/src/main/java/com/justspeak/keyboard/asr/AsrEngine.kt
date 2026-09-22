@@ -14,7 +14,14 @@ interface AsrEngine {
 
     fun start(listener: AsrListener)
     fun stop()
+    fun cancel() = stop()
     fun release()
+
+    /**
+     * Optional 16 kHz mono float PCM in approximately [-1, 1].
+     * Stub ignores this; [WhisperCppEngine] buffers for D3.
+     */
+    fun feedPcmFloat(samples: FloatArray, sampleCount: Int = samples.size) = Unit
 }
 
 enum class AsrState {

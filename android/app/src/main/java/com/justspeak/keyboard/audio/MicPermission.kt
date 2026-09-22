@@ -3,6 +3,9 @@ package com.justspeak.keyboard.audio
 import android.Manifest
 import android.app.Activity
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import android.content.pm.PackageManager
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -28,4 +31,19 @@ object MicPermission {
             REQUEST_CODE,
         )
     }
+
+    /**
+     * Opens application details so the user can re-enable RECORD_AUDIO
+     * when the IME cannot show a permission dialog.
+     */
+    fun openAppSettings(context: Context) {
+        val intent = Intent(
+            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+            Uri.fromParts("package", context.packageName, null),
+        ).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(intent)
+    }
 }
+

@@ -4,7 +4,7 @@
     <string name="ime_name">JustSpeak</string>
     <string name="ime_subtype_english">English (dictation)</string>
 
-    <string name="transcript_placeholder">Tap the mic. D1 uses a stub transcript so you can test Insert.</string>
+    <string name="transcript_placeholder">Tap the mic. Stub transcript (D2 audio path live; Whisper still D3).</string>
     <string name="listening">Listening…</string>
     <string name="mic_start">Mic</string>
     <string name="mic_stop">Stop</string>

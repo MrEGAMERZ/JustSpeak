@@ -12,28 +12,29 @@ This is **not** Wispr feature parity.
 
 | Day | Focus | Status |
 | --- | --- | --- |
-| **D1** | Android IME skeleton + MIT + README + ASR interface (stub Whisper path) | **This run** |
-| **D2** | Mic + runtime permissions + audio pipeline (16 kHz mono PCM → engine) | TODO |
+| **D1** | Android IME skeleton + MIT + README + ASR interface (stub Whisper path) | **Done** |
+| **D2** | Mic + runtime permissions + audio pipeline (16 kHz mono PCM → engine) | **Done** |
 | **D3** | On-device Whisper English (`whisper.cpp` / ggml, `base.en` or `small.en` quantized) | TODO |
 | **D4** | `InputConnection` insert end-to-end (any focused text field) | TODO |
 | **D5** | Harden + ship a debuggable APK | TODO |
 | **D6** | iOS thin/clipboard **or** Android polish — pick one, do not do both | TODO |
 | **D7** | Freeze scope + release notes | TODO |
 
-## D1 (this run) — done when
+## D1 — done
 
-- Custom `InputMethodService` is registered and can be enabled in system settings.
+- Custom `InputMethodService` registered and enableable in system settings.
 - Minimal keyboard UI: mic, transcript, Insert/Done, space, backspace (no QWERTY polish).
 - `AsrEngine` interface + stub that returns placeholder text so insert can be tested.
 - Onboarding Activity documents the enable path and requests `RECORD_AUDIO`.
 - MIT license + README + this plan.
 
-## D2 — mic + permissions + audio pipeline
+## D2 — done (audio pipeline harden)
 
-- Finish AudioRecord robustness: audio focus, buffer sizing, start/stop races, lifecycle.
-- Convert captured PCM to the format Whisper expects (16 kHz, mono, float `[-1, 1]` or `int16`).
-- Permission UX from IME when the user skipped onboarding (deep-link to setup).
-- Do **not** send audio off-device.
+- Audio focus request / abandon while recording (`AudioFocusController`).
+- Capture race fixes: synchronized start/stop/cancel, no double `AudioRecord`, teardown on IME hide/destroy.
+- int16 PCM → float `[-1, 1]` path (`PcmConverters`) fed to `AsrEngine.feedPcmFloat` (stub ignores; Whisper buffers for D3).
+- IME permission recovery: missing `RECORD_AUDIO` on mic tap opens onboarding (no crash); setup button + app-settings helper remain available.
+- Insert still works with stub transcript (`USE_STUB_ASR=true`).
 
 ## D3 — on-device Whisper EN
 
@@ -41,7 +42,7 @@ This is **not** Wispr feature parity.
 
 - Vendor or git-submodule `whisper.cpp`.
 - Ship or first-run-download a **quantized English** model, prefer `ggml-base.en-q5_1.bin` (fallback `tiny.en` if APK size / RAM hurts; `small.en` if quality is insufficient).
-- `WhisperCppEngine` loads the model from `filesDir/models` or assets and replaces the D1 stub.
+- `WhisperCppEngine` loads the model from `filesDir/models` or assets and replaces the D1 stub (consume buffered float PCM from D2).
 - English only. No 100-language pack.
 
 **Alternate if NDK packaging blocks D3:** ONNX Runtime Mobile + a Whisper ONNX English model. Do not add a cloud ASR “just to demo.”
