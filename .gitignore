@@ -1,0 +1,32 @@
+# Android / Gradle
+.gradle/
+**/build/
+local.properties
+*.iml
+.idea/
+.cxx/
+captures/
+.externalNativeBuild/
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# Whisper / ggml model weights (download on device or via D3 scripts)
+**/*.bin
+**/*.ggml
+**/*.gguf
+android/app/src/main/assets/models/*
+!android/app/src/main/assets/models/.gitkeep
+!android/app/src/main/assets/models/README.md
+
+# OS / editor
+.DS_Store
+*.swp
+*~
+.vscode/
+.cursor/
+
+# Java
+*.class
+hs_err_pid*
