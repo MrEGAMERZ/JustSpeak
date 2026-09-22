@@ -1,163 +1,185 @@
-# JustSpeak — system idea
+# JustSpeak — Idea
 
-Last updated: 2026-09-22
+**Working name:** JustSpeak  
+**Tagline:** On-device voice → text you can type anywhere. SpeakType privacy, Wispr Flow reach.  
+**Status:** Idea + architecture lock (2026-09-22)  
+**Repo:** https://github.com/MrEGAMERZ/JustSpeak  
 
-Privacy-first **on-device** speech system. Phone apps (Android IME, iOS keyboard / share extension) are **consumers** of a shared core engine — not two fully separate products. Inspired by the *shape* of SpeakType / Wispr-style flows (mic → local ASR → text in the focused field), not feature parity.
-
-Related: [PLAN.md](./PLAN.md) (week-1 ship map). This file is the longer architecture brainstorm.
-
----
-
-## 1. Vision
-
-| | |
-| --- | --- |
-| **Job** | Speak → accurate text appears in whatever app you’re typing into |
-| **Default** | Audio never leaves the device |
-| **License / posture** | MIT / OSS; no account wall for core dictation |
-| **Platforms** | Android + iOS as *shells*; one core STT (+ optional emotion / language) |
-
-**Non-goals (near term):** AI rewrite tones, themes, subscriptions, full QWERTY polish, cloud ASR as the default path, 100-language day-one packs.
+Related week ship map: [PLAN.md](./PLAN.md) (on the Android IME branch until merged).
 
 ---
 
-## 2. System shape (core vs shells)
+## 1. What we’re building
+
+A **system first**, apps second.
+
+JustSpeak is an **on-device speech understanding engine** that turns microphone audio into text (STT), with optional emotion / language signals, then lets **any client** insert that text — keyboards, note apps, agents, IDE plugins.
+
+Inspired by:
+
+- **Wispr Flow** — voice keyboard UX in every text field (iOS/Android), polished output
+- **SpeakType** — 100% offline Whisper on Mac, MIT, no subscription wall
+
+**Promise:** mic → private on-device STT → text in any app. No account required for core dictation.
+
+---
+
+## 2. Product shape (system vs apps)
 
 ```text
 ┌─────────────────────────────────────────────────────────┐
-│                    Platform shells                       │
-│  Android IME │ iOS custom keyboard / share │ clipboard   │
-│  (InputConnection / insert / paste)                      │
-└──────────────────────────▲──────────────────────────────┘
-                           │ transcript (+ optional tags)
-┌──────────────────────────┴──────────────────────────────┐
-│                 JustSpeak Core Engine                    │
-│  AudioIn → VAD/chunk → STT → (Emotion?) → (Lang ID?)     │
-│  Model pack · runtime (whisper.cpp / WhisperKit / ORT)   │
-└──────────────────────────▲──────────────────────────────┘
-                           │ PCM 16 kHz mono
-┌──────────────────────────┴──────────────────────────────┐
-│              Capture (platform Audio APIs)               │
-└─────────────────────────────────────────────────────────┘
+│                 JustSpeak Core (SDK)                     │
+│  Audio capture → VAD → ASR → Post-process                │
+│  (+ language ID, emotion tags — phased)                  │
+│  Shared C/C++ API + platform bindings                    │
+│  (JNI / Swift / FFI)                                     │
+└──────────────────────────┬──────────────────────────────┘
+                           │
+          ┌────────────────┼────────────────┐
+          ▼                ▼                ▼
+   Android IME        iOS Keyboard     Future hosts
+   (type anywhere)    (type anywhere)  (clipboard,
+                                        Share, agents)
 ```
 
-### Core (shared responsibilities)
-
-- Model loading / download / cache (quantized ggml or Core ML / ONNX)
-- Inference API: `AudioBuffer → TranscriptResult { text, lang?, emotion?, confidence? }`
-- English-first; multilingual models as a **pack**, not a rewrite of the shells
-- No network permission required for the default path
-
-### Shells (platform-only)
-
-| Shell | Role |
-| --- | --- |
-| **Android IME** | Primary ship path today — `InputMethodService`, mic UI, insert via `InputConnection` |
-| **iOS keyboard / extension** | Peer consumer of the same core (higher Apple keyboard constraints) |
-| **Clipboard / share helper** | Thin fallback when a full keyboard isn’t ready |
-
-Week-1 reality check: Android IME + stub→Whisper is the executable path in [PLAN.md](./PLAN.md). iOS is Day-6 thin/clipboard unless the core is proven first. Long-term, both platforms should call the **same** engine contract.
-
----
-
-## 3. Phone-runnable model shortlist
-
-Sizes below are **approx disk** for common ggml quantizations ([ggerganov/whisper.cpp on Hugging Face](https://huggingface.co/ggerganov/whisper.cpp)). Latency/RAM vary by SoC; treat numbers as planning bounds, not guarantees. **TODO:** measure on target devices.
-
-### 3.1 Speech-to-text (primary)
-
-| Model | ~Disk | Role | Notes |
-| --- | --- | --- | --- |
-| `tiny.en-q5_1` | ~31 MiB | Smoke / low-end | Fastest EN; weaker accuracy |
-| **`base.en-q5_1`** | **~57 MiB** | **Default MVP** | Matches PLAN.md; good EN quality/size tradeoff |
-| `base.en-q8_0` | ~78 MiB | Quality bump | If q5_1 quality hurts |
-| `small.en` (quantized) | ~hundreds MiB class | Optional upsell | Only if base isn’t enough on mid phones |
-| `base` / `small` (multilingual) | larger | Phase 2 | EN-first MVP; swap pack, keep API |
-
-**Runtime picks**
-
-| Platform | Preferred stack | Alternate |
+| Layer | Role | v0 |
 | --- | --- | --- |
-| **Android** | [whisper.cpp](https://github.com/ggml-org/whisper.cpp) via NDK/JNI (`examples/whisper.android`) | ONNX Runtime Mobile + Whisper ONNX if NDK packaging blocks |
-| **iOS** | WhisperKit (Core ML / ANE) **or** whisper.cpp XCFramework / Metal | Same ggml model family when possible for parity |
+| **Core** | Models, audio pipeline, transcript API | Must ship first |
+| **Android app** | Custom IME + onboarding | Primary ship |
+| **iOS app** | Custom keyboard + Full Access | After Android E2E |
+| **Hosts later** | Clipboard, Shortcuts, desktop, agents | After both keyboards |
 
-**License note:** OpenAI Whisper weights are MIT; whisper.cpp is MIT. Keep third-party notices in-repo.
+**Rule:** **no app-only logic in Core**. Apps only: UI, permissions, `InputConnection` / keyboard insert.
 
-### 3.2 Multilingual
+---
 
-- **MVP:** English-only (`*.en`) packs — smaller, sharper for EN dictation.
-- **Phase 2:** Multilingual `base`/`small` ggml; detect or let user pick language; do **not** ship “100 languages” as a marketing checkbox without per-locale QA.
-- Optional tiny **language-ID** head later (research TODO) so the core can auto-select a pack.
+## 3. User journeys
 
-### 3.3 Emotion / paralinguistics (phase 2+)
+1. **Dictate in WhatsApp / Messages / Notes** — switch to JustSpeak keyboard → mic → speak → Insert.
+2. **Offline commute** — same path with no network.
+3. **Multilingual** — speak Hindi/English (etc.); engine picks model or auto language (phase).
+4. **Emotion-aware (later)** — transcript tagged with tone — **not required for v0**.
 
-Dictation MVP does **not** need emotion. When added, keep it **on-device**, optional, and behind the same core API (`emotion?: { arousal, valence, … }` or categorical labels).
+---
 
-| Candidate | Why it’s phone-interesting | Caveat |
+## 4. Model brainstorm (phone-runnable)
+
+Sizes are **order-of-magnitude** for planning. **TODO:** measure latency/RAM on target phones. Do not invent benchmarks.
+
+### 4.1 Speech-to-text (primary)
+
+| Model | Why | Size (order) | Languages | Fit |
+| --- | --- | --- | --- | --- |
+| **Moonshine Tiny / Base** | Live on-device STT; streaming; MIT; mobile packages | ~125–290 MB | EN-first | Strong **EN streaming** candidate |
+| **Whisper Tiny / Tiny.en** via **sherpa-onnx** or whisper.cpp | Ubiquitous multilingual tiny | ~30–100 MB | 99 (multi) | Strong **multilingual + fallback** |
+| **Whisper `base.en-q5_1`** (ggml / whisper.cpp) | Matches current [PLAN.md](./PLAN.md) Android path | ~57 MB | EN | **Default week-1 Android** until experiments say otherwise |
+| **Whisper Base** (quantized, multi) | Better accuracy opt-in | ~50–80 MB+ | EN / multi | Optional “Accurate” mode |
+| **SenseVoice Small** (sherpa-onnx) | Strong Asian + EN; fast on mobile benches | ~240 MB | zh/en/ja/ko/yue | **India/Asia path** |
+| **Paraformer / Zipformer** (sherpa) | Fast streaming | varies | mainly EN/EU | Later |
+| **System SpeechRecognizer** | Zero model ship cost | System | many | Last-resort fallback (not privacy default) |
+
+### 4.2 Engines
+
+| Platform | Preferred runtime | Notes |
 | --- | --- | --- |
-| **Wav2Small** (dimensional A/D/V; ~72K params; ~120 KB quantized ONNX reported in paper) | Tiny footprint for arousal/dominance/valence | Integration + quality TODO on real phones; cite [arXiv:2408.13920](https://arxiv.org/abs/2408.13920) |
-| Categorical Wav2Vec2-SER ONNX (~tens–~90 MB INT8 class) | Familiar labels (happy/sad/…) | Heavier than Wav2Small; battery/thermal TODO |
+| **Android** | whisper.cpp JNI for PLAN week-1; **sherpa-onnx** as parallel spike (often smoother packaging) | Prefer whichever wins latency + APK size on a mid phone |
+| **iOS** | **WhisperKit / Core ML**; Moonshine native if available | Watch 4 GB device limits (Tiny-class only) |
+| **Shared Core** | C API over ggml and/or sherpa | One `JustSpeakEngine` interface |
 
-Do **not** invent accuracy numbers. Prototype offline before promising UI.
+### 4.3 v0 model policy
+
+1. **Week-1 Android (aligned with PLAN):** ship / download **`ggml-base.en-q5_1`** via whisper.cpp; fallback `tiny.en-q5_1` if size/RAM hurts.
+2. **Experiment track (do not block IME):** Moonshine Tiny vs Whisper Tiny.en for streaming EN; SenseVoice Small for Hinglish / India.
+3. **Never** require cloud ASR for core.
+
+### 4.4 Emotion (phase 2 — do not block v0)
+
+SER is weaker than ASR on phones. Keep emotion as an optional module after keyboards work.
+
+| Candidate | Why phone-interesting | Caveat |
+| --- | --- | --- |
+| **Wav2Small** (~72K params; ~120 KB quantized ONNX reported) | Dimensional A/D/V; tiny footprint ([arXiv:2408.13920](https://arxiv.org/abs/2408.13920)) | Integration + quality TODO |
+| Categorical Wav2Vec2-SER ONNX (~tens–~90 MB INT8 class) | Familiar labels | Heavier; battery TODO |
+
+### 4.5 TTS
+
+Core product is **STT (speech → text)**. TTS read-back is phase 3 (system TTS / Piper), not v0.
 
 ---
 
-## 4. Data flow (happy path)
+## 5. Non-goals (v0)
 
-1. Shell requests mic permission / audio focus.
-2. Capture **16 kHz mono** PCM (int16 or float `[-1, 1]`).
-3. Optional VAD / end-of-utterance (TODO: WebRTC VAD or energy gate).
-4. Core runs STT → partials (if streaming) → final transcript.
-5. Optional: emotion / lang tags on the same buffer (async, must not block insert).
-6. Shell **inserts** text into the focused field (Android `InputConnection`, iOS text document proxy) or falls back to clipboard.
-7. Buffers discarded; **no utterance persistence** in default builds (see SECURITY when that doc exists).
+- Subscription / account wall
+- Cloud ASR by default
+- Full QWERTY polish
+- 100 languages day one
+- AI rewrite tones
+- Desktop Mac app as a peer to phone keyboards
 
 ---
 
-## 5. MVP vs later
+## 6. Core API (conceptual)
 
-Aligned with [PLAN.md](./PLAN.md):
+```text
+prepare(modelId)
+startListening()  → partial transcripts
+stopListening()   → final Transcript
+cancel()
+unload()
+```
 
-| Now (week-shaped) | Later |
+`Transcript` may later carry `lang?`, `emotion?`, `confidence?`. Emotion/lang must not block insert.
+
+---
+
+## 7. Phased roadmap
+
+| Phase | Outcome |
 | --- | --- |
-| Android IME + core interface | Shared core package consumed by iOS |
-| Stub → `base.en-q5_1` Whisper | Multilingual packs |
-| Insert into any text field | Streaming partials UX polish |
-| MIT, no accounts | Emotion tags, lang ID |
-| | Full iOS keyboard parity |
+| **P0 — Core** | `AsrEngine` + one on-device model + audio pipeline |
+| **P1 — Android IME** | Type into Messages/Chrome |
+| **P2 — iOS keyboard** | Same Core binding |
+| **P3 — Multilingual packs** | Whisper multi + SenseVoice |
+| **P4 — Emotion module** | Optional tags |
+| **P5 — Hosts** | Clipboard / Share / agents |
 
-**Still cut unless explicitly reopened:** rewrite LLM, themes, subscriptions, cloud-default ASR, suite branding with sibling products.
+Week execution detail stays in [PLAN.md](./PLAN.md) (D1–D7).
 
 ---
 
-## 6. Risks
+## 8. Risks
 
 | Risk | Mitigation |
 | --- | --- |
-| Model size / APK / IPA bloat | Default `base.en-q5_1`; first-run download; tiny.en fallback |
-| NDK / JNI / Core ML packaging | Alternate ORT / WhisperKit paths documented |
-| Battery & thermals | Short utterances; cancel on hide; no always-on cloud |
-| iOS keyboard memory limits | Thin keyboard UI; heavy work in shared process / extension carefully |
-| Scope creep vs other demos | Keep JustSpeak standalone; protect competing demo weeks |
-| Cloud-agent / CI budget | Local Android Studio / Mac builds remain first-class |
+| Model size / APK bloat | Download on first use; Tiny / `base.en-q5_1` default |
+| Android whisper.cpp slow / hard NDK | Spike sherpa-onnx in parallel |
+| iOS Full Access trust | Clear privacy copy; open source |
+| Emotion overpromise | Keep out of v0 pitch |
+| Competing demo weeks | Keep JustSpeak standalone; no sibling-product scope creep |
 
 ---
 
-## 7. Next experiments (prove on a phone)
+## 9. Success metrics
 
-1. **Latency:** hold-to-talk 3–5 s EN → `base.en-q5_1` on a mid Android + one recent iPhone (p50/p95 wall time). **TODO:** fill table after measurement.
-2. **Insert E2E:** Messages / Chrome / Notes on Android IME (PLAN D4).
-3. **Parity spike:** same ggml buffer through whisper.cpp Android + WhisperKit/iOS — transcript diff on a fixed sample set.
-4. **Emotion spike (optional):** Wav2Small ONNX on 10 clips; decide if UI is worth it.
-5. **Packaging:** APK size with embedded vs downloaded model.
+- Offline dictation in a third-party text field (Android first)
+- Interactive latency feelable as “live enough” on a mid phone for Tiny / base.en (**TODO:** fill RTF / wall-ms after measurement)
+- Zero audio leaves device in default mode
+- Second client reuses Core without rewriting ASR
 
 ---
 
-## 8. Open questions
+## 10. Open decisions
 
-- Streaming partials in IME vs final-only for v1?
-- Single shared C++ core vs thin platforms calling WhisperKit + whisper.cpp separately with a shared API contract?
-- First-run model download UX vs shipping tiny.en in the binary?
+1. Default EN long-term: Moonshine Tiny vs Whisper `base.en` / Tiny.en — **decide after on-device bake-off**
+2. Core language: C/C++ (sherpa + ggml) vs KMP — prefer **C API + thin bindings**
+3. Emotion: delay until P4
+4. Streaming partials in IME vs final-only for v1?
+
+---
+
+## 11. Positioning
+
+> **JustSpeak is an open on-device voice engine** (phone-first STT) with Android & iOS keyboards as the first apps — SpeakType’s privacy, Wispr’s “type anywhere,” without the subscription.
 
 ---
 
@@ -165,6 +187,7 @@ Aligned with [PLAN.md](./PLAN.md):
 
 - [whisper.cpp](https://github.com/ggml-org/whisper.cpp) (+ Android / iOS examples)
 - [ggml Whisper models](https://huggingface.co/ggerganov/whisper.cpp)
-- WhisperKit (Apple Silicon / Core ML) — evaluate for iOS shell
-- Wav2Small / dimensional SER — [arXiv:2408.13920](https://arxiv.org/abs/2408.13920)
-- In-repo week plan: [PLAN.md](./PLAN.md)
+- sherpa-onnx / Moonshine / SenseVoice — evaluate on device before locking defaults
+- WhisperKit — iOS Core ML path
+- Wav2Small — [arXiv:2408.13920](https://arxiv.org/abs/2408.13920)
+- In-repo: [PLAN.md](./PLAN.md)
